@@ -11,13 +11,11 @@ DeepSeek自己写的Readme ↓
 
 ## 安装
 
-需要装有 Plugin Manager 的 DeepSeek Harness，打开侧边栏的 **Plugins** 页面，安装这个 spec：
-
 ```
 github:cccchensy/dsh-token-heatmap
 ```
 
-或者直接在任意会话里对 agent 说：*安装插件 `github:cccchensy/dsh-token-heatmap`*
+直接在任意会话里对 agent 说：*安装插件 `github:cccchensy/dsh-token-heatmap`*
 如果你已经 clone 了仓库，就改成安装它的目录路径
 
 装好后窗口会出现在对话区的左下角卸载在同一个 Plugins 页面里操作
