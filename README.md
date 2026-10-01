@@ -2,7 +2,7 @@
 
 [English](./README.en.md) | **中文**
 
-一个可拖动的浮动窗口，用 GitHub 贡献图的形式显示你的 DeepSeek Harness token 用量：
+一个可拖动的浮动窗口，用 GitHub 贡献图的形式（Codex也长这样）显示你的 DeepSeek Harness token 用量：
 最上面是今天的总量，下面是最近 30 天，悬停时上方会展开一整年的面板
 
 ![Harness 界面左下角的 token 热力图窗口，上方展开了年度面板](docs/preview.png)
