@@ -1,0 +1,5 @@
+# The dsh-token-heatmap bundle patch: one Host row that owns the daily token
+# aggregation and the read-only JSON route the browser half fetches.
+- insert:
+    - id: dsh-token-heatmap
+      name: 'dsh-token-heatmap'

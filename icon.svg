@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Token heatmap">
+  <title>Token heatmap</title>
+  <g>
+    <rect x="2" y="2" width="8" height="8" rx="2" fill="#e4edfd"/>
+    <rect x="12" y="2" width="8" height="8" rx="2" fill="#b7c8fe"/>
+    <rect x="22" y="2" width="8" height="8" rx="2" fill="#5686fe"/>
+    <rect x="2" y="12" width="8" height="8" rx="2" fill="#d3e2ff"/>
+    <rect x="12" y="12" width="8" height="8" rx="2" fill="#7aaaff"/>
+    <rect x="22" y="12" width="8" height="8" rx="2" fill="#4176e6"/>
+    <rect x="2" y="22" width="8" height="8" rx="2" fill="#b7c8fe"/>
+    <rect x="12" y="22" width="8" height="8" rx="2" fill="#4176e6"/>
+    <rect x="22" y="22" width="8" height="8" rx="2" fill="#d3e2ff"/>
+  </g>
+</svg>

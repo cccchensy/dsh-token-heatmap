@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Token Heatmap",
+    "description": "A contribution-style heatmap of daily token usage in the session header, one square per local day."
+  }
+}
