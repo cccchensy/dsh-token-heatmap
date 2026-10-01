@@ -2,9 +2,25 @@
   "name": "dsh-token-heatmap",
   "version": "0.1.0",
   "private": true,
-  "description": "Contribution-style heatmap of daily token usage in the DeepSeek Harness header",
+  "description": "A draggable floating window with a GitHub-style heatmap of your daily DeepSeek Harness token usage.",
+  "license": "MIT",
   "type": "module",
   "icon": "./icon.svg",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cccchensy/dsh-token-heatmap.git"
+  },
+  "homepage": "https://github.com/cccchensy/dsh-token-heatmap#readme",
+  "bugs": {
+    "url": "https://github.com/cccchensy/dsh-token-heatmap/issues"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "heatmap",
+    "token-usage"
+  ],
   "exports": {
     ".": "./lib/index.js",
     "./client": "./lib/client.js",
@@ -13,8 +29,7 @@
     "./locale/*.json": "./locale/*.json"
   },
   "files": [
-    "lib/index.js",
-    "lib/client.js",
+    "lib/**/*.js",
     "cordis.patch.yml",
     "icon.svg",
     "locale/*.json",

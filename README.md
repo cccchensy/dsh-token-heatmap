@@ -3,11 +3,12 @@
 A GitHub-contribution-style heatmap of **daily token usage** in a draggable
 floating window. Today's number sits on top and the last 30 days sit under it;
 hover the window and a larger frosted panel grows above it with a full year.
-Every number matches what the Harness itself reports for a Turn.
+The counts are derived from the session logs with the same rules the Harness uses
+for a Turn's usage pill — see [Limits](#limits) for where they can still differ.
 
 ```
         ┌───────────────────────────┐
-        │ 今日  83.6M               │  ← drag anywhere to move
+        │ 今日  83.60M              │  ← drag anywhere to move
         │ 日  ▫▫▫▫▫▫▫               │
         │ 二  ▫▫▫▫▫▫▫  ← last 30 days│
         │ 四  ▫▫▫▫▫▫▫               │
@@ -27,6 +28,39 @@ Every number matches what the Harness itself reports for a Turn.
    │ 未缓存输入 … · 缓存读取 … · 输出 …                           │
    └─────────────────────────────────────────────────────────────┘
 ```
+
+## Install
+
+Requires **DeepSeek Harness (DSH)** with a profile that provides the Plugin
+Manager — the same profile whose **Plugins** page appears in the Web sidebar.
+
+The package is a bundle, and a GitHub repository is a valid install spec, so
+either of these works:
+
+- **Web UI** — open the sidebar's **Plugins** page and install the spec
+  `github:cccchensy/dsh-token-heatmap`.
+- **Agent** — ask the agent in a session to install
+  `github:cccchensy/dsh-token-heatmap`, which runs `plugin_manager` with
+  `action: install_bundle` and that spec as `target`.
+
+A local clone works the same way: install the repository directory itself by its
+absolute path.
+
+What to expect:
+
+- Plugins are **per profile**. Installing affects every session using that profile
+  and survives a restart.
+- The host half scans `$DSH_HOME/sessions/**/session.v4.jsonl.zstd` (or `~/.dsh`
+  when `DSH_HOME` is unset) and serves the aggregate in-process. Nothing leaves
+  your machine; there is no network call and no telemetry.
+- No dependencies, no build step, no install scripts: the package is plain ESM and
+  a YAML patch.
+- **After an update, restart DSH.** The plugin-manager docs are explicit that
+  replacing an installed package requires a restart to load a fresh JavaScript
+  module generation — a reload alone can keep serving the previous client bundle.
+- The window appears in the lower-left of the conversation area. Drag it anywhere.
+
+To uninstall, remove the bundle from the same Plugins page.
 
 ## What it does
 
@@ -291,8 +325,17 @@ coordinates — that regression is the one that made the window disappear.
 - The window cannot show usage that the Host has not folded yet. A turn's tokens
   appear when the assistant message is committed to the session log, so the figure
   is accurate to the last committed step rather than to the last generated token.
-- Token accounting mirrors the official Turn-usage projection, so it agrees with
-  the Harness UI; it is not a second implementation of the API's billing.
+- Token accounting follows the rules of the official Turn-usage projection
+  (`normalizeUsage`: an explicit total wins, otherwise the four buckets are
+  summed), so it agrees with the Harness usage pill for an ordinary Turn. It is not
+  a second implementation of the API's billing.
+- **A retried step is currently undercounted, which is a real divergence from the
+  official total.** Only `assistant/message` events are folded, one sample per
+  `(turn, step)`. The official projection also counts each `assistant/attempt`, so
+  when `llm/retry` reopens a step the earlier attempts' usage is included upstream
+  and dropped here. The module's own docstring claims a retried step reports
+  cumulative usage; that is not true of the wire format. Fixing it means folding
+  `assistant/attempt` as well, keyed by event sequence number. Not fixed yet.
 - The pulse says "a session is running", not "tokens are being spent". A turn that
   is thinking, calling a tool or waiting on a stream is still running, and the
   window pulses throughout — that is the point, but it is a statement about
