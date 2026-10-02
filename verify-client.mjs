@@ -855,24 +855,66 @@ check('the running animation loops forever and the settling one does not', breat
   && breathe.idle.calls[0].options.iterations === 1,
   JSON.stringify(breathe?.live?.calls?.[0]?.options));
 
-check('the pulse follows the process-wide run status, not this Session',
-  source.includes("var inject = ['slots', 'locale', 'sessions', 'remote'];")
-  && source.includes("remote.$on('api-session/status'")
-  && source.includes('setRunning(runningIds.size > 0)'));
+/** The pure run-state helpers, lifted so their precedence rules can be exercised. */
+const liftedRunState = (() => {
+  const start = source.indexOf('function anyRunningIn(');
+  const end = source.indexOf('function useNoSessionStatus(', start);
+  return start < 0 || end < 0 ? '' : source.slice(start, end);
+})();
+
+check('the pulse reads the whole-profile run roster, not this Session',
+  // The roster the Harness hands every slot entry covers every session in the
+  // profile, so a task in another workspace lights the pulse up. A per-session
+  // subscription cannot answer that, which is why the window used to stay dark.
+  source.includes('props.useSessionStatus')
+  && source.includes('var statuses = useSessionStatus(function (value) { return value; });')
+  && source.includes('var running = resolveRunning(statuses, remoteRunning);')
+  && source.includes('function anyRunningIn(statuses)'));
+check('the run state resolves from the roster, falling back only when it is empty', (() => {
+  try {
+    // eslint-disable-next-line no-new-func
+    const resolve = new Function(`${liftedRunState}\nreturn { anyRunningIn, resolveRunning };`)();
+    const roster = (entries) => new Map(Object.entries(entries));
+    const cases = [
+      ['an empty roster is not running', resolve.resolveRunning(roster({}), false), false],
+      ['one running session is enough', resolve.resolveRunning(roster({ a: { running: false }, b: { running: true } }), false), true],
+      ['all idle means not running', resolve.resolveRunning(roster({ a: { running: false }, b: { running: false } }), false), false],
+      ['a null entry is tolerated', resolve.resolveRunning(roster({ a: null, b: { running: true } }), false), true],
+      // The reason the roster wins: a missed `running: false` on the event bus must
+      // not be able to pin the pulse on for ever.
+      ['a populated idle roster overrides a stale event flag', resolve.resolveRunning(roster({ a: { running: false } }), true), false],
+      ['an unavailable roster defers to the event bus', resolve.resolveRunning(null, true), true],
+      ['an unavailable roster with no events is idle', resolve.resolveRunning(null, false), false],
+      ['a roster without values() is treated as unavailable', resolve.resolveRunning({}, true), true],
+    ];
+    const bad = cases.filter(([, actual, expected]) => actual !== expected);
+    for (const [name, actual, expected] of cases) {
+      check('run state: ' + name, actual === expected, JSON.stringify({ actual, expected }));
+    }
+    return bad.length === 0;
+  } catch (error) {
+    console.log('[runstate] ' + String(error && error.message ? error.message : error));
+    return false;
+  }
+})(), '');
+check('the token figures refresh faster while anything runs', (() => {
+  // Work in another workspace only reaches this page through the poll, so a fixed
+  // fifteen-second period makes a climbing total look stalled.
+  return source.includes('var RUNNING_POLL_MS = 3000;')
+    && source.includes('timer = setTimeout(tick, runningRef.current ? RUNNING_POLL_MS : POLL_MS);')
+    && source.includes('runningRef.current = running;')
+    && !source.includes('setInterval(function () { load(false); }, POLL_MS);');
+})());
 check('the pulse starts on the first running session and ends on the last', (() => {
-  // One flag per session id, added on start and removed on stop; the pulse is the
-  // non-empty set, so it cannot end while any conversation is still working.
+  // One flag per session id, added on start and removed on stop; that set is the
+  // fallback the roster takes over from once it has entries.
   const subscribeAt = source.indexOf("remote.$on('api-session/status'");
   const subscribeBody = source.slice(subscribeAt, subscribeAt + 600);
-  const idsAt = source.indexOf('var runningIds = new Set();');
-  const idsScope = source.slice(Math.max(0, idsAt - 400), idsAt + 200);
   return subscribeAt > 0
     && subscribeBody.includes('runningIds.add(key)')
     && subscribeBody.includes('runningIds.delete(key)')
-    && idsAt > 0
-    && idsScope.includes('function ()')
-    && source.includes('setRunning(runningIds.size > 0)');
-})(), 'subscribe=' + String(source.indexOf("remote.$on('api-session/status'")) + ' ids=' + String(source.indexOf('var runningIds')));
+    && source.includes('setRemoteRunning(runningIds.size > 0)');
+})(), 'subscribe=' + String(source.indexOf("remote.$on('api-session/status'")));
 check('the old per-event hold heuristic is gone', !source.includes('RUN_HOLD_MS')
   && !source.includes('pulseTimer')
   && !source.includes('snapshotRef')
