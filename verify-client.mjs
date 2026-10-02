@@ -593,6 +593,11 @@ if (formatters !== null) {
     ['a malformed day key is passed through untouched', formatters.formatDay('nonsense'), 'nonsense'],
     ['a fresh payload reads as seconds', /^\d+s$/.test(formatters.formatAge(Date.now())), true],
     ['an older payload reads as minutes', formatters.formatAge(Date.now() - 90000), '2m'],
+    ['over an hour reads as hours and minutes', formatters.formatAge(Date.now() - 11100000), '3h5m'],
+    ['a whole number of hours keeps its zero minutes', formatters.formatAge(Date.now() - 7200000), '2h0m'],
+    ['just under a day stays in hours', formatters.formatAge(Date.now() - 86340000), '23h59m'],
+    ['over a day reads as days, hours and minutes', formatters.formatAge(Date.now() - 189060000), '2d4h31m'],
+    ['a whole number of days keeps its zeros', formatters.formatAge(Date.now() - 86400000), '1d0h0m'],
   ];
   for (const [name, actual, expected] of cases) {
     check('formatting: ' + name, actual === expected, JSON.stringify({ actual, expected }));
