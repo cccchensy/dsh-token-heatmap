@@ -261,21 +261,26 @@ check('the stylesheet carries the DeepSeek blue ramp', styles.length === 1
   && styles[0].textContent.includes('--dsw-static-deepseek-800'));
 check('the stylesheet carries both frosted backgrounds', styles.length === 1
   && styles[0].textContent.includes('body[data-ds-dark-theme] .dsh-th-panel'));
-check('the window glass is a dark surface in both themes', (() => {
+check('the window glass follows the theme', (() => {
   const css = styles[0]?.textContent ?? '';
   // Matched as declarations, because these rules span several joined strings.
   const light = /\.dsh-th-card\{[^}]*?background:(rgb\([^)]*\))/.exec(css)?.[1];
   const dark = /body\[data-ds-dark-theme\] \.dsh-th-card\{[^}]*?background:(rgb\([^)]*\))/.exec(css)?.[1];
-  // Explicit colours, not `--dsw-alias-bg-overlay`: that token is `#e9ecf2` in the
-  // light theme, so using it as the base painted the window light grey and
-  // silently defeated the very fallback meant to prevent that.
   const lightRule = css.slice(css.indexOf('.dsh-th-card{'), css.indexOf('border-radius:12px;'));
   const darkRule = css.slice(css.indexOf('body[data-ds-dark-theme] .dsh-th-card{'), css.indexOf('color:rgb(249 250 251);'));
   // Guarded: if either sentinel ever moves, the slice is empty and every
   // `!includes(...)` below would pass for the wrong reason.
-  return lightRule.length > 0 && darkRule.length > 0
-    && light === 'rgb(35, 38, 44, 90%)'
+  if (!(lightRule.length > 0 && darkRule.length > 0)) return false;
+  const brightness = (rgb) => {
+    const [r, g, b] = (rgb.match(/\d+/g) ?? []).map(Number);
+    return r + g + b;
+  };
+  // The two surfaces must be on opposite sides of mid-grey, and neither may lean on
+  // `--dsw-alias-bg-overlay`: that token is `#e9ecf2` in the light theme, so it
+  // silently overrode the fallback that was written to sit under it.
+  return light === 'rgb(233, 236, 242, 88%)'
     && dark === 'rgb(5, 5, 6)'
+    && brightness(light) > 600 && brightness(dark) < 100
     && !lightRule.includes('--dsw-alias-bg-overlay')
     && !darkRule.includes('--dsw-alias-bg-overlay');
 })(), JSON.stringify({
