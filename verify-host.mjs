@@ -13,6 +13,7 @@ import { join } from 'node:path';
 
 import * as plugin from './lib/index.js';
 import { SESSIONS_DIR } from './lib/config.js';
+import { currentSignature } from './lib/scan.js';
 
 /** One day in milliseconds, for the clock-driven cache checks. */
 const DAY = 24 * 60 * 60 * 1000;
@@ -176,12 +177,23 @@ const denied = await drive(server, route.path);
 check('a rejected request is refused with 401', denied.status === 401, String(denied.status));
 admit = true;
 
-// A second GET inside the freshness window must reuse the cache: the stat pass
-// is what runs, not the decompression pass.
+// A second GET inside the freshness window must reuse the cache: the stat pass is
+// what runs, not the decompression pass.
+//
+// The corpus is live — the agent running this check is itself being logged — so a
+// rebuild here is also legitimate if a log moved between the two requests. The
+// assertion therefore accepts a reused payload, and accepts a rebuild only when the
+// stat signature really changed; a rebuild with a still corpus is the failure it is
+// looking for.
+const signatureBeforeSecond = await currentSignature(SESSIONS_DIR);
 const second = await drive(server, route.path);
 const secondPayload = JSON.parse(second.body);
-check('a repeat GET reuses the cached fold', secondPayload.generatedAt === payload?.generatedAt,
-  `${secondPayload.generatedAt} vs ${payload?.generatedAt}`);
+const signatureAfterSecond = await currentSignature(SESSIONS_DIR);
+const corpusMoved = signatureAfterSecond.signature !== signatureBeforeSecond.signature;
+check('a repeat GET reuses the cached fold when the corpus stood still',
+  secondPayload.generatedAt === payload?.generatedAt || corpusMoved,
+  `${secondPayload.generatedAt} vs ${payload?.generatedAt}${corpusMoved ? ' (corpus moved, rebuild expected)' : ''}`);
+if (corpusMoved) console.log('  note  a session log moved between the two requests; reuse not expected');
 
 // A committed session event drops the freshness window so the next read re-checks
 // the corpus. Re-checking is not the same as rebuilding: when nothing on disk

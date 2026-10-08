@@ -672,6 +672,11 @@ let legendStyles = [];
 let legendGeometry = [];
 let legendLabels = [];
 let gridStyles = [];
+let panelPills = [];
+let bigTotalPill = null;
+let bigBestPill = null;
+let bigAveragePill = null;
+let bigCountPills = [];
 try {
   const build = new Function('h', `${lifted}\nreturn Panel;`);
   const Panel = build(react.createElement);
@@ -729,9 +734,86 @@ try {
     .filter((child) => child === undefined || child === null || child.type === 'span' && child.props.className === undefined)
     .map((child) => child?.children?.[0])
     .filter((text) => typeof text === 'string');
+
+  // Read the stat pills as rendered, by label, so the assertion is about what a
+  // reader sees rather than about which formatter the source names.
+  const readPills = (tree) => findAll(tree, 'dsh-th-pill').map((node) => {
+    const kids = node.children ?? [];
+    return { label: kids[0]?.children?.[0], value: kids[1]?.children?.[0] };
+  });
+  panelPills = readPills(rendered);
+
+  // The same panel with figures large enough that an abbreviation and an exact
+  // count are unmistakably different. The average is fractional on purpose: it is
+  // the one stat that is not a whole number of tokens, so it has to be rounded.
+  const bigTree = expand(Panel({
+    t: injected.t,
+    payload: {
+      ...samplePayload,
+      totals: {
+        ...samplePayload.totals,
+        tokens: 572038459,
+        averagePerActiveDay: 286038459.6,
+        bestDay: { date: '2026-10-01', tokens: 513056377 },
+      },
+    },
+    dark: false,
+    hovered: null,
+    hoveredDay: null,
+    focusDate: null,
+    onHover: () => {},
+    onKeyDown: () => {},
+    labelOf: (day) => day.date,
+    panelRef: { current: null },
+    onPanelEnter: () => {},
+    onPanelLeave: () => {},
+    pos: { left: 100, bottom: 200, width: 820 },
+    sessionCount: 3,
+  }));
+  const bigPills = readPills(bigTree);
+  const byLabel = (pills, label) => pills.find((entry) => entry.label === label);
+  bigTotalPill = byLabel(bigPills, injected.t('stat.total'));
+  bigBestPill = byLabel(bigPills, injected.t('stat.best'));
+  bigAveragePill = byLabel(bigPills, injected.t('stat.average'));
+  bigCountPills = [
+    byLabel(bigPills, injected.t('stat.activeDays')),
+    byLabel(bigPills, injected.t('stat.streak')),
+  ];
 } catch (error) {
   console.log(`  [ramp] ${error.message}`);
 }
+
+const sep = injected.t('number.groupSeparator');
+check('the panel total shows the exact count, grouped in threes', (() => {
+  if (bigTotalPill === null || bigTotalPill === undefined) return false;
+  return bigTotalPill.value === ['572', '038', '459'].join(sep);
+})(), JSON.stringify({ total: bigTotalPill?.value }));
+check('the best day is exact and grouped too', (() => {
+  if (bigBestPill === null || bigBestPill === undefined) return false;
+  return bigBestPill.value === ['513', '056', '377'].join(sep);
+})(), JSON.stringify({ best: bigBestPill?.value }));
+check('the daily average is exact, grouped, and rounded to a whole number', (() => {
+  // 286038459.6 must become 286038460: grouping alone would be wrong, and
+  // truncating would give ...459, so this pins the rounding direction too.
+  if (bigAveragePill === null || bigAveragePill === undefined) return false;
+  return bigAveragePill.value === ['286', '038', '460'].join(sep);
+})(), JSON.stringify({ average: bigAveragePill?.value }));
+check('the count pills are left as plain integers', (() => {
+  // Active days and streak are small counts; grouping them would be noise.
+  return bigCountPills.length === 2
+    && bigCountPills.every((entry) => entry !== undefined && /^\d+$/.test(String(entry.value)));
+})(), JSON.stringify(bigCountPills));
+check('the small-number total is still grouped', (() => {
+  const total = panelPills.find((entry) => entry.label === injected.t('stat.total'));
+  return total !== undefined && total.value === '1' + sep + '000';
+})(), JSON.stringify(panelPills));
+check('no panel token figure is an abbreviated K/M value', (() => {
+  const totals = [bigTotalPill, bigBestPill, bigAveragePill]
+    .filter((entry) => entry !== undefined && entry !== null)
+    .map((entry) => String(entry.value));
+  return totals.length === 3
+    && totals.every((value) => !value.endsWith('K') && !value.endsWith('M'));
+})(), JSON.stringify({ total: bigTotalPill?.value, best: bigBestPill?.value, average: bigAveragePill?.value }));
 
 check('the legend renders six ramp samples', legendStyles.length === 6, JSON.stringify(legendStyles));
 check('each legend sample carries an explicit colour', legendStyles.every((value) => typeof value === 'string' && value.length > 0),

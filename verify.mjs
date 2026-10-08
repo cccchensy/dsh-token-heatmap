@@ -7,7 +7,7 @@
  */
 import { buildPayload } from './lib/aggregate.js';
 import { DEFAULTS, SESSIONS_DIR } from './lib/config.js';
-import { currentSignature, decompressAll, foldLogText, listSessionLogs, scanSessions } from './lib/scan.js';
+import { currentSignature, decompressAll, foldLogText, listSessionLogs, scanSessions, signatureOf } from './lib/scan.js';
 import { dayKeyOf, normalizeUsage } from './lib/tokens.js';
 import fs from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
@@ -94,12 +94,33 @@ check('partial cache buckets with a total are accepted', (() => {
 
 console.log(`\nscan of ${SESSIONS_DIR}`);
 const started = Date.now();
-const { signature } = await currentSignature();
+const firstWalk = await currentSignature();
+const signature = firstWalk.signature;
 const result = await scanSessions({ root: SESSIONS_DIR, includeSubagents: DEFAULTS.includeSubagents });
 console.log(`  files=${result.files} unreadable=${result.unreadable} samples=${result.countedSamples} skipped=${result.skippedSamples} days=${result.days.size} in ${Date.now() - started}ms`);
 check('at least one session log was read', result.files > 0);
 check('the scan produced day buckets', result.days.size > 0);
-check('the signature is stable across two walks', (await currentSignature()).signature === signature);
+
+// The corpus is LIVE: the agent running this check is itself being logged, so a full
+// scan takes long enough for its own session log to grow underneath. A plain "two
+// walks are equal" assertion therefore fails at random and says nothing about the
+// cache. What has to hold is that the signature is a pure function of one listing,
+// and that it moves only when a log really moved.
+const secondWalk = await currentSignature();
+check('the signature is a pure function of the file listing',
+  signatureOf(firstWalk.files) === firstWalk.signature
+  && signatureOf(secondWalk.files) === secondWalk.signature);
+check('the signature moves only when a log actually changed', (() => {
+  if (secondWalk.signature === firstWalk.signature) return true;
+  if (secondWalk.files.length !== firstWalk.files.length) return true;
+  return secondWalk.files.some((after, index) => {
+    const before = firstWalk.files[index];
+    return before === undefined
+      || before.file !== after.file
+      || before.size !== after.size
+      || Math.round(before.mtimeMs) !== Math.round(after.mtimeMs);
+  });
+})(), 'the signature moved without any file changing');
 
 // Multi-frame decompression: a session log is one Zstandard frame per append,
 // and every Node zstd API decodes exactly the first one.
